@@ -1,0 +1,53 @@
+name: sync-main-to-databricks
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch: {}
+
+env:
+  BASE_DIR: "/Shared/projects"
+  PROJ: "GRUPO_02"
+
+jobs:
+  sync-to-databricks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Instalar Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Configurar variables de destino
+        id: target
+        run: |
+          TARGET_PATH="${BASE_DIR}/${PROJ}"
+          echo "target_path=${TARGET_PATH}" >> "$GITHUB_OUTPUT"
+          echo "Destino en Databricks: ${TARGET_PATH}"
+
+      - name: Verificar que el directorio destino exista (crearlo si no)
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: |
+          databricks workspace mkdirs "${{ steps.target.outputs.target_path }}"
+
+      - name: Copiar todo el repo al Workspace de Databricks
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: |
+          databricks workspace import-dir . "${{ steps.target.outputs.target_path }}" \
+            --overwrite \
+            --exclude-hidden-files
+
+      - name: Resumen
+        if: always()
+        run: |
+          {
+            echo "### Sync a Databricks"
+            echo "- Rama: \`main\`"
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Destino: \`${{ steps.target.outputs.target_path }}\`"
+          } >> $GITHUB_STEP_SUMMARY
