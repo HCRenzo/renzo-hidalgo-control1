@@ -33,14 +33,19 @@ jobs:
         run: |
           databricks workspace mkdirs "${{ steps.target.outputs.target_path }}"
 
+      - name: Preparar carpeta limpia (sin .git ni .github)
+        run: |
+          rm -rf /tmp/sync-payload
+          mkdir -p /tmp/sync-payload
+          rsync -a --exclude='.git' --exclude='.github' ./ /tmp/sync-payload/
+
       - name: Copiar todo el repo al Workspace de Databricks
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
         run: |
-          databricks workspace import-dir . "${{ steps.target.outputs.target_path }}" \
-            --overwrite \
-            --exclude-hidden-files
+          databricks workspace import-dir /tmp/sync-payload "${{ steps.target.outputs.target_path }}" \
+            --overwrite
 
       - name: Resumen
         if: always()
