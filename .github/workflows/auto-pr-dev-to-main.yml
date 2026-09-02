@@ -14,7 +14,7 @@ permissions:
 
 env:
   BASE_BRANCH: main            # rama destino
-  KEYWORD: ESAN                # palabra EXACTA requerida en algún commit
+  KEYWORD: ESAN                # palabra requerida en algún commit (match sin distinguir mayúsculas/minúsculas)
   MIN_AHEAD: "1"               # dev debe estar >= MIN_AHEAD commits por delante de main
   PR_TITLE_PREFIX: "Promote"   # prefijo del título del PR
   PR_LABELS: "auto-pr,release" # etiquetas del PR (coma); vacío = ninguna
@@ -42,8 +42,8 @@ jobs:
             const commits = context.payload.commits || [];
             const msgs = commits.map(c => c.message || "");
 
-            // ✅ Palabra exacta con límites de palabra; sensible a mayúsculas
-            const regex = new RegExp(`\\b${escapeRegex(process.env.KEYWORD || "esan")}\\b`);
+            // ✅ Palabra completa "esan"/"ESAN", sin distinguir mayúsculas/minúsculas (flag "i")
+            const regex = new RegExp(`\\b${escapeRegex(process.env.KEYWORD || "ESAN")}\\b`, "i");
             const hit = msgs.some(m => regex.test(m));
 
             let aheadBy = -1, behindBy = -1, reason = "";
@@ -64,7 +64,7 @@ jobs:
             const minAhead = parseInt(process.env.MIN_AHEAD || "1", 10);
             let open = true;
             if (head.toLowerCase() === base.toLowerCase()) { open=false; reason="push en rama base"; }
-            else if (!hit) { open=false; reason=`no se encontró la palabra exacta "${process.env.KEYWORD}"`; }
+            else if (!hit) { open=false; reason=`no se encontró la palabra "${process.env.KEYWORD}" (esan/ESAN)`; }
             else if (reason) { open=false; /* reason ya seteada */ }
             else if (aheadBy < minAhead) { open=false; reason=`ahead_by=${aheadBy} < MIN_AHEAD=${minAhead}`; }
             else if (existingUrl) { open=false; reason=`PR ya existe: ${existingUrl}`; }
@@ -102,7 +102,7 @@ jobs:
               `- Head: \`${head}\``,
               `- Commits por delante: **${ahead}**`,
               "",
-              `Condición: presencia de la palabra exacta \`${process.env.KEYWORD}\` en un mensaje de commit.`
+              `Condición: presencia de la palabra \`${process.env.KEYWORD}\` (esan/ESAN) en un mensaje de commit.`
             ].join("\n");
 
             const pr = await github.rest.pulls.create({ owner, repo, base, head, title, body });
@@ -129,7 +129,7 @@ jobs:
             echo "### Auto PR debug"
             echo "- Base: \`${{ steps.ctx.outputs.base }}\`"
             echo "- Head: \`${{ steps.ctx.outputs.head }}\`"
-            echo "- Keyword encontrada: \`${{ steps.ctx.outputs.hit }}\` (KEYWORD=${KEYWORD})"
+            echo "- Keyword encontrada: \`${{ steps.ctx.outputs.hit }}\` (KEYWORD=${KEYWORD}, esan/ESAN)"
             echo "- ahead_by: \`${{ steps.ctx.outputs.ahead_by }}\`"
             echo "- behind_by: \`${{ steps.ctx.outputs.behind_by }}\`"
             echo "- Abrir PR: \`${{ steps.ctx.outputs.open }}\`"
